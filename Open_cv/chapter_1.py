@@ -341,7 +341,6 @@ for x, y, w, h in faces:
    cv2.imshow("Image", img)
    cv2.waitKey(20000)
 
-"""
 
 #PROJEKT 1
 #VIRTUALNE MALOWANIE
@@ -356,17 +355,79 @@ cap.set(3, 640)
 cap.set(4, 480)
 # ustaw jasność obrazu
 cap.set(10, 100)
-myColors = [18,100, 189,255, 89, 255]
+myColors = [0, 0,  187,  179, 255, 255]
+myColorsValues = [0, 0, 255]
+
+def getContours(img):
+   #contours daje nam po kolei kazdy ksztalt i miejsce corners 
+   contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+   for cnt in contours:
+      #policz pole tej figury
+      area = cv2.contourArea(cnt)
+      x, y = 0, 0
+      if area>20:
+      
+         #narysuj kształty - zdjęcie oryginalne, kontur, -1 bo chcemy wszystkie boki, kolor, grubość
+         cv2.drawContours(imgResult, cnt, -1, (0, 0, 255), 5)
+         #obwód, True bo kształt zamknięty
+         peri = cv2.arcLength(cnt, True)
+         #wygładzenie konturów - o ile przyblienie? o 2% peri w poniszym przypadku
+         approx = cv2.approxPolyDP(cnt, 0.02*peri, True)
+         #zamykanie kształtów w ramce prostokątnej
+         x, y, width, height = cv2.boundingRect(approx)
+   return (x+width//2, y)
+
+points = []
 def find_colors(img, myColors):
    imgVSH = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
    lower = np.array(myColors[0:3])
    higher = np.array(myColors[3:6])
    mask = cv2.inRange(imgVSH, lower, higher)
-   cv2.imshow("img", mask)
+   x, y = getContours(mask)
+   points.append([x,y])
+   for point in points:
+      cv2.circle(imgResult,(point[0], point[1]), 10, (255, 0, 0), cv2.FILLED)
 
 while True:
    _, img = cap.read()
-   find_colors(img, myColors)
-   cv2.imshow("Image", img)
+   imgResult = img.copy()
+   find_colors(imgResult, myColors)
+   cv2.imshow("im", imgResult)
    if cv2.waitKey(1) & 0xFF==ord('q'):
       break
+   
+   """
+
+#PROJEKT 2
+#SKANER DOKUMENTÓW
+windowWidth = 640
+windowHeight = 480
+
+cap = cv2.VideoCapture(0)
+# szerokość
+cap.set(3, windowWidth)
+# wysokość
+cap.set(4, windowHeight)
+# ustaw jasność obrazu
+cap.set(10, 100)
+
+def preprocess(img):
+   imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+   imgBlur = cv2.GaussianBlur(imgGray, (5,5), 1)
+   imgCanny = cv2.Canny(imgBlur, 200, 200)
+   kernel = np.ones((5, 5), np.uint8)
+   imgDilatation = cv2.dilate(imgCanny, kernel, iterations=2)
+   imgEroded = cv2.erode(imgDilatation, kernel, iterations=1)
+
+   return imgEroded
+
+while True:
+    success, img = cap.read()
+    try:
+      imgResized = cv2.resize(img, (windowWidth, windowHeight))
+    except:
+      break
+    imgThres = preprocess(imgResized)
+    cv2.imshow("video", imgThres)
+    if cv2.waitKey(1) & 0xFF==ord('q'):
+        break
