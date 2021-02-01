@@ -421,13 +421,47 @@ def preprocess(img):
 
    return imgEroded
 
+def getContours(img):
+   biggest = np.array([[345,106],[231,261], [136,190], [244, 41]])
+   maxArea = 0
+   #contours daje nam po kolei kazdy ksztalt i miejsce corners 
+   contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+   for cnt in contours:
+      #policz pole tej figury
+      area = cv2.contourArea(cnt)
+      x, y = 0, 0
+      if area>5000:
+         
+         #narysuj kształty - zdjęcie oryginalne, kontur, -1 bo chcemy wszystkie boki, kolor, grubość
+         #cv2.drawContours(imgResult, cnt, -1, (0, 0, 255), 5)
+         #obwód, True bo kształt zamknięty
+         peri = cv2.arcLength(cnt, True)
+         #wygładzenie konturów - o ile przyblienie? o 2% peri w poniszym przypadku
+         approx = cv2.approxPolyDP(cnt, 0.02*peri, True)
+         #do skanera tylko coś co ma 4 boki i szukamy największej powierzchni
+         if len(approx) == 4 and area > maxArea:
+
+            biggest = approx
+            maxArea = area
+   cv2.drawContours(imgResult, [biggest], -1, (0, 255, 120), 20)
+   return biggest
+
+def perspective(img, biggest):
+   width, height = windowWidth, windowHeight
+   pts1 = np.float32(biggest)
+   pts2 = np.float32([[0,0],[width,0], [0,height], [width, height]])
+   matrix = cv2.getPerspectiveTransform(pts1, pts2)
+   imgOutput = cv2.warpPerspective(img, matrix, (width, height))
+   return imgOutput
+
+
 while True:
-    success, img = cap.read()
-    try:
-      imgResized = cv2.resize(img, (windowWidth, windowHeight))
-    except:
-      break
-    imgThres = preprocess(imgResized)
-    cv2.imshow("video", imgThres)
-    if cv2.waitKey(1) & 0xFF==ord('q'):
+   success, img = cap.read()
+   imgResized = cv2.resize(img, (windowWidth, windowHeight))
+   imgResult = imgResized.copy()
+   imgThres = preprocess(imgResized)
+   biggest = getContours(imgThres)
+   imgWraped = perspective(imgResized, biggest)
+   cv2.imshow("video", img)
+   if cv2.waitKey(1) & 0xFF==ord('q'):
         break
